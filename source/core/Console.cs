@@ -19,6 +19,7 @@ namespace SHVDN
 {
     public sealed class Console : MarshalByRefObject
     {
+        private int _selectionAnchor = -1;
         private int _cursorPos = 0;
         private int _lastCursorBlinkTick = 0;
         private bool _cursorVisible = false;
@@ -54,6 +55,7 @@ namespace SHVDN
         private static readonly Color s_prefixColor = Color.FromArgb(255, 52, 152, 219);
         private static readonly Color s_backgroundColor = Color.FromArgb(200, Color.Black);
         private static readonly Color s_altBackgroundColor = Color.FromArgb(200, 52, 73, 94);
+        private static readonly Color s_selectionColor = Color.FromArgb(200, 78, 165, 217);
 
         [DllImport("user32.dll")]
         private static extern int ToUnicode(
@@ -70,14 +72,37 @@ namespace SHVDN
             _keyManager.Register(Keys.PageDown, PageDown);
             _keyManager.Register(Keys.Back, BackwardDeleteChar);
             _keyManager.Register(Keys.Back | Keys.Alt, BackwardKillWord);
-            _keyManager.Register(Keys.Delete, ForwardDeleteChar);
-            _keyManager.Register(Keys.Left, MoveCursorLeft);
-            _keyManager.Register(Keys.Left | Keys.Control, BackwardWord);
-            _keyManager.Register(Keys.Right, MoveCursorRight);
-            _keyManager.Register(Keys.Right | Keys.Control, ForwardWord);
+            _keyManager.Register(Keys.Delete, () =>
+            {
+                if (HasSelection)
+                {
+                    DeleteSelection();
+                    return;
+                }
+
+                ForwardDeleteChar();
+            });
+
+            _keyManager.Register(Keys.Left, () => MoveCursorLeft(false));
+            _keyManager.Register(Keys.Left | Keys.Control, () => BackwardWord(false));
+
+            _keyManager.Register(Keys.Left | Keys.Shift, () => MoveCursorLeft(true));
+            _keyManager.Register(Keys.Left | Keys.Control | Keys.Shift, () => BackwardWord(true));
+
+            _keyManager.Register(Keys.Right, () => MoveCursorRight(false));
+            _keyManager.Register(Keys.Right | Keys.Control, () => ForwardWord(false));
+
+            _keyManager.Register(Keys.Right | Keys.Shift, () => MoveCursorRight(true));
+            _keyManager.Register(Keys.Right | Keys.Control | Keys.Shift, () => ForwardWord(true));
+
             _keyManager.Register(Keys.Insert | Keys.Shift, AddClipboardContent);
-            _keyManager.Register(Keys.Home, MoveCursorToBegOfLine);
-            _keyManager.Register(Keys.End, MoveCursorToEndOfLine);
+
+            _keyManager.Register(Keys.Home, () => MoveCursorToBegOfLine(false));
+            _keyManager.Register(Keys.Home | Keys.Shift, () => MoveCursorToBegOfLine(true));
+
+            _keyManager.Register(Keys.End, () => MoveCursorToEndOfLine(false));
+            _keyManager.Register(Keys.End | Keys.Shift, () => MoveCursorToEndOfLine(true));
+
             _keyManager.Register(Keys.Up, () =>
             {
                 lock (_lock)
@@ -125,14 +150,23 @@ namespace SHVDN
 
             _keyManager.Register(Keys.Tab, CompleteCandidate);
 
-            _keyManager.Register(Keys.A | Keys.Control, MoveCursorToBegOfLine);
-            _keyManager.Register(Keys.B | Keys.Control, MoveCursorLeft);
-            _keyManager.Register(Keys.B | Keys.Alt, MoveCursorRight);
+            _keyManager.Register(Keys.A | Keys.Control, () => MoveCursorToBegOfLine(false));
+            _keyManager.Register(Keys.B | Keys.Control, () => MoveCursorLeft(false));
+            _keyManager.Register(Keys.B | Keys.Alt, () => MoveCursorRight(false));
+            _keyManager.Register(Keys.C | Keys.Control, CopySelection);
             _keyManager.Register(Keys.D | Keys.Alt, KillWord);
-            _keyManager.Register(Keys.D | Keys.Control, ForwardDeleteChar);
-            _keyManager.Register(Keys.E | Keys.Control, MoveCursorToEndOfLine);
-            _keyManager.Register(Keys.F | Keys.Control, MoveCursorRight);
-            _keyManager.Register(Keys.F | Keys.Alt, ForwardWord);
+            _keyManager.Register(Keys.D | Keys.Control, () => {
+                if (HasSelection)
+                {
+                    DeleteSelection();
+                    return;
+                }
+
+                ForwardDeleteChar();
+            });
+            _keyManager.Register(Keys.E | Keys.Control, () => MoveCursorToEndOfLine(false));
+            _keyManager.Register(Keys.F | Keys.Control, () => MoveCursorRight(false));
+            _keyManager.Register(Keys.F | Keys.Alt, () => ForwardWord(false));
             _keyManager.Register(Keys.H | Keys.Control, BackwardDeleteChar);
             _keyManager.Register(Keys.P | Keys.Control, GoUpCommandList);
             _keyManager.Register(Keys.N | Keys.Control, GoDownCommandList);
@@ -302,7 +336,17 @@ namespace SHVDN
             lock (_lock)
             {
                 _input = _input.Insert(_cursorPos, text);
+
+                if (HasSelection)
+                {
+                    DeleteSelection();
+                }
+
+                _input = _input.Insert(_cursorPos, text);
                 _cursorPos += text.Length;
+
+                ClearSelection();
+
                 UpdateCommandCandidates();
             }
 
@@ -563,11 +607,15 @@ namespace SHVDN
             string currInput = null;
             int currLineHistCount = 0;
             int currPage = 0;
+            int selectionAnchor;
+            int cursorPos;
             lock (_lock)
             {
                 currInput = _input;
                 currLineHistCount = _lineHistory.Count;
                 currPage = _currentPage;
+                selectionAnchor = _selectionAnchor;
+                cursorPos = _cursorPos;
             }
 
             // Draw background
@@ -575,6 +623,16 @@ namespace SHVDN
             // Draw input field
             DrawRect(0, ConsoleHeight, ConsoleWidth, InputHeight, s_altBackgroundColor);
             DrawRect(0, ConsoleHeight + InputHeight, 80, InputHeight, s_altBackgroundColor);
+            // Draw selection
+            if (HasSelection)
+            {
+                (int selectionStart, int selectionEnd) = MinMax(selectionAnchor, cursorPos);
+
+                float startX = GetTextLength(currInput.Substring(0, selectionStart)) - GetMarginLength();
+                float endX = GetTextLength(currInput.Substring(0, selectionEnd)) - GetMarginLength();
+
+                DrawRect(26 + (startX * ConsoleWidth), ConsoleHeight + 2, (int)((endX - startX) * ConsoleWidth) + 1, InputHeight - 4, s_selectionColor);
+            }
             // Draw input prefix
             DrawText(0, ConsoleHeight, "$>", s_prefixColor);
             // Draw input text
@@ -668,6 +726,8 @@ namespace SHVDN
             {
                 lock (_lock)
                 {
+                    ClearSelection();
+
                     if (_selectedCandidateIndex >= 0 && _selectedCandidateIndex < _commandCandidates.Count)
                     {
                         string candidate = _commandCandidates[_selectedCandidateIndex];
@@ -762,6 +822,9 @@ namespace SHVDN
                 _input = _commandHistory[_commandHistory.Count - _commandPos - 1];
                 // Reset cursor position to end of input text
                 _cursorPos = _input.Length;
+
+                ClearSelection();
+
                 UpdateCommandCandidates();
                 ResetCursorBlinking();
             }
@@ -780,6 +843,8 @@ namespace SHVDN
                 _input = _commandHistory[_commandHistory.Count - _commandPos - 1];
                 _cursorPos = _input.Length;
 
+                ClearSelection();
+
                 UpdateCommandCandidates();
                 ResetCursorBlinking();
             }
@@ -789,7 +854,7 @@ namespace SHVDN
         /// Moves to the end of the next word, just like emacs and GNU readline (does not move to the beginning of the next word like zsh does for forward-word).
         /// Words are composed of letters and digits.
         /// </summary>
-        private void ForwardWord()
+        private void ForwardWord(bool moveSelection = false)
         {
             lock (_lock)
             {
@@ -797,6 +862,8 @@ namespace SHVDN
                 {
                     return;
                 }
+
+                int old = _cursorPos;
 
                 // Note: Char.IsLetterOrDigit returns true for most characters where `iswalnum` returns true in Windows
                 // (exactly same result in the ASCII range), but does not apply for all of them.
@@ -821,6 +888,8 @@ namespace SHVDN
                         break;
                     }
                 }
+
+                UpdateSelection(old, moveSelection);
             }
 
             ResetCursorBlinking();
@@ -829,7 +898,7 @@ namespace SHVDN
         /// Moves back to the start of the current or previous word.
         /// Words are composed of letters and digits.
         /// </summary>
-        private void BackwardWord()
+        private void BackwardWord(bool moveSelection = false)
         {
             lock (_lock)
             {
@@ -837,6 +906,8 @@ namespace SHVDN
                 {
                     return;
                 }
+
+                int old = _cursorPos;
 
                 char prevChar = _input[_cursorPos - 1];
                 if (!char.IsLetterOrDigit(prevChar))
@@ -860,6 +931,8 @@ namespace SHVDN
                         break;
                     }
                 }
+
+                UpdateSelection(old, moveSelection);
             }
 
             ResetCursorBlinking();
@@ -871,16 +944,24 @@ namespace SHVDN
         {
             lock (_lock)
             {
-                if (_input.Length <= 0 || _cursorPos <= 0)
+                if (HasSelection)
                 {
+                    DeleteSelection();
+                    ResetCursorBlinking();
                     return;
                 }
 
+                if (_input.Length <= 0 || _cursorPos <= 0)
+                    return;
+
                 _input = _input.Remove(_cursorPos - 1, 1);
                 _cursorPos--;
+
+                ClearSelection();
                 UpdateCommandCandidates();
-                ResetCursorBlinking();
             }
+
+            ResetCursorBlinking();
         }
         /// <summary>
         /// Deletes the character at point.
@@ -894,8 +975,48 @@ namespace SHVDN
                     return;
                 }
 
+                ClearSelection();
+
                 _input = _input.Remove(_cursorPos, 1);
                 UpdateCommandCandidates(); 
+            }
+        }
+
+        private void CopySelection()
+        {
+            if (!HasSelection)
+            {
+                return;
+            }
+
+            string content;
+            lock (_lock)
+            {
+                (int start, int end) = MinMax(_selectionAnchor, _cursorPos);
+                content = _input.Substring(start, end);
+            }
+
+            Clipboard.SetText(content);
+        }
+
+        private void DeleteSelection()
+        {
+            lock (_lock)
+            {
+                if (!HasSelection)
+                {
+                    return;
+                }
+
+                (int start, int end) = MinMax(_cursorPos, _selectionAnchor);
+
+                int length = end - start;
+
+                _input = _input.Remove(start, length);
+                _cursorPos = start;
+
+                ClearSelection();
+                UpdateCommandCandidates();
             }
         }
 
@@ -1041,6 +1162,8 @@ namespace SHVDN
                     return;
                 }
 
+                ClearSelection();
+
                 if (_cursorPos == 0)
                 {
                     _input = SwapTwoCharacters(_input, 0);
@@ -1086,6 +1209,8 @@ namespace SHVDN
 
                 origCursorPos = _cursorPos;
             }
+
+            ClearSelection();
 
             int word2End = 0;
             int word2Beg = 0;
@@ -1155,53 +1280,105 @@ namespace SHVDN
         {
             Clipboard.SetText(str.Substring(startIndex, length));
             str = str.Remove(startIndex, length);
+
+            ClearSelection();
+
             UpdateCommandCandidates(); 
         }
 
-        private void MoveCursorLeft()
+        private void MoveCursorLeft(bool moveSelection = false)
         {
             lock (_lock)
             {
                 if (_cursorPos > 0)
                 {
+                    int old = _cursorPos;
                     _cursorPos--;
+
+                    UpdateSelection(old, moveSelection);
                 }
             }
 
             ResetCursorBlinking();
         }
 
-        private void MoveCursorRight()
+        private void MoveCursorRight(bool moveSelection = false)
         {
             lock (_lock)
             {
                 if (_cursorPos < _input.Length)
                 {
+                    int old = _cursorPos;
                     _cursorPos++;
+
+                    UpdateSelection(old, moveSelection);
                 }
             }
 
             ResetCursorBlinking();
         }
 
-        private void MoveCursorToBegOfLine()
+        private void MoveCursorToBegOfLine(bool moveSelection = false)
         {
             lock (_lock)
             {
+                int old = _cursorPos;
                 _cursorPos = 0;
+
+                UpdateSelection(old, moveSelection);
             }
 
             ResetCursorBlinking();
         }
 
-        private void MoveCursorToEndOfLine()
+        private void MoveCursorToEndOfLine(bool moveSelection = false)
         {
             lock (_lock)
             {
+                int old = _cursorPos;
                 _cursorPos = _input.Length;
+
+                UpdateSelection(old, moveSelection);
             }
 
             ResetCursorBlinking();
+        }
+
+        private void ClearSelection()
+        {
+            lock (_lock)
+            {
+                _selectionAnchor = -1;
+            }
+        }
+
+        private bool HasSelection
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _selectionAnchor >= 0 &&
+                       _selectionAnchor != _cursorPos;
+                }
+            }
+        }
+
+        private void UpdateSelection(int oldCursor, bool moveSelection)
+        {
+            lock (_lock)
+            {
+                if (!moveSelection)
+                {
+                    _selectionAnchor = -1;
+                    return;
+                }
+
+                if (_selectionAnchor == -1)
+                {
+                    _selectionAnchor = oldCursor;
+                }
+            }
         }
 
         private void CompileExpression()
@@ -1403,6 +1580,14 @@ namespace SHVDN
             }
             return prefix;
         }
+
+        private (int min, int max) MinMax(int a, int b)
+        {
+            return a < b ? (a, b) : (b, a);
+        }
+
+        private int Max(int a, int b) => a > b ? a : b;
+        private int Min(int a, int b) => a > b ? b : a;
     }
 
     public sealed class ConsoleCommand : Attribute
