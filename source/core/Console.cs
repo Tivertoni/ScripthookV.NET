@@ -152,7 +152,7 @@ namespace SHVDN
 
             _keyManager.Register(Keys.Tab, CompleteCandidate);
 
-            _keyManager.Register(Keys.A | Keys.Control, () => MoveCursorToBegOfLine(false));
+            _keyManager.Register(Keys.A | Keys.Control, SelectAll);
             _keyManager.Register(Keys.B | Keys.Control, () => MoveCursorLeft(false));
             _keyManager.Register(Keys.B | Keys.Alt, () => MoveCursorRight(false));
             _keyManager.Register(Keys.C | Keys.Control, CopySelection);
@@ -1406,6 +1406,16 @@ namespace SHVDN
                        _selectionAnchor != _cursorPos;
                 }
             }
+        }
+
+        private void SelectAll()
+        {
+            lock (_lock)
+            {
+                _cursorPos = 0;
+            }
+
+            MoveCursorToEndOfLine(true);
         }
 
         private void CopySelection()
