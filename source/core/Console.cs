@@ -155,6 +155,7 @@ namespace SHVDN
             _keyManager.Register(Keys.A | Keys.Control, () => MoveCursorToBegOfLine(false));
             _keyManager.Register(Keys.B | Keys.Control, () => MoveCursorLeft(false));
             _keyManager.Register(Keys.B | Keys.Alt, () => MoveCursorRight(false));
+            _keyManager.Register(Keys.C | Keys.Control, CopySelection);
             _keyManager.Register(Keys.D | Keys.Alt, KillWord);
 
             _keyManager.Register(Keys.D | Keys.Control, () => {
@@ -1405,6 +1406,23 @@ namespace SHVDN
                        _selectionAnchor != _cursorPos;
                 }
             }
+        }
+
+        private void CopySelection()
+        {
+            if (!HasSelection)
+            {
+                return;
+            }
+
+            string content;
+            lock (_lock)
+            {
+                (int start, int end) = MinMax(_selectionAnchor, _cursorPos);
+                content = _input.Substring(start, end - start);
+            }
+
+            Clipboard.SetText(content);
         }
 
         private void DeleteSelection()
