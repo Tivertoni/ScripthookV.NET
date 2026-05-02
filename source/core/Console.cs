@@ -1377,11 +1377,18 @@ namespace SHVDN
             return *(float*)NativeFunc.Invoke(0x85F061DA64ED2F67 /* END_TEXT_COMMAND_GET_SCREEN_WIDTH_OF_DISPLAY_TEXT */, true);
         }
 
+        private static float _cachedMarginLength = -1f;
+
         private static float GetMarginLength()
         {
-            float len1 = GetTextLength("A");
-            float len2 = GetTextLength("AA");
-            return len1 - (len2 - len1); // [Margin][A] - [A] = [Margin]
+            if (_cachedMarginLength < 0f)
+            {
+                float len1 = GetTextLength("A");
+                float len2 = GetTextLength("AA");
+
+                _cachedMarginLength = len1 - (len2 - len1); // [Margin][A] - [A] = [Margin]
+            }
+            return _cachedMarginLength;
         }
 
         private static string LongestCommonPrefix(List<string> strs, string input)
