@@ -335,8 +335,6 @@ namespace SHVDN
 
             lock (_lock)
             {
-                _input = _input.Insert(_cursorPos, text);
-
                 if (HasSelection)
                 {
                     DeleteSelection();
@@ -1349,6 +1347,8 @@ namespace SHVDN
             lock (_lock)
             {
                 _selectionAnchor = -1;
+                _lengthUntilSelectionStart = -1f;
+                _lengthUntilSelectionEnd = -1f;
             }
         }
 
@@ -1373,20 +1373,19 @@ namespace SHVDN
             {
                 if (!moveSelection)
                 {
-                    _selectionAnchor = -1;
-                    _lengthUntilSelectionStart = -1f;
-                    _lengthUntilSelectionEnd = -1f;
+                    ClearSelection();
                     return;
                 }
 
                 if (_selectionAnchor == -1)
                 {
                     _selectionAnchor = oldCursor;
-
-                    (int selectionStart, int selectionEnd) = MinMax(_selectionAnchor, _cursorPos);
-                    float startX = GetTextLength(_input.Substring(0, selectionStart));
-                    float endX = GetTextLength(_input.Substring(0, selectionEnd));
                 }
+
+                (int start, int end) = MinMax(_selectionAnchor, _cursorPos);
+
+                _lengthUntilSelectionStart = GetTextLength(_input.Substring(0, start));
+                _lengthUntilSelectionEnd = GetTextLength(_input.Substring(0, end));
             }
         }
 
