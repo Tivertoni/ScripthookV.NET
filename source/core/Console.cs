@@ -628,8 +628,8 @@ namespace SHVDN
             {
                 (int selectionStart, int selectionEnd) = MinMax(selectionAnchor, cursorPos);
 
-                float startX = GetTextLength(currInput.Substring(0, selectionStart)) - GetMarginLength();
-                float endX = GetTextLength(currInput.Substring(0, selectionEnd)) - GetMarginLength();
+                float startX = _lengthUntilSelectionStart - GetMarginLength();
+                float endX = _lengthUntilSelectionEnd - GetMarginLength();
 
                 DrawRect(26 + (startX * ConsoleWidth), ConsoleHeight + 2, (int)((endX - startX) * ConsoleWidth) + 1, InputHeight - 4, s_selectionColor);
             }
@@ -1364,6 +1364,9 @@ namespace SHVDN
             }
         }
 
+        private float _lengthUntilSelectionStart = -1f;
+        private float _lengthUntilSelectionEnd = -1f;
+
         private void UpdateSelection(int oldCursor, bool moveSelection)
         {
             lock (_lock)
@@ -1371,12 +1374,18 @@ namespace SHVDN
                 if (!moveSelection)
                 {
                     _selectionAnchor = -1;
+                    _lengthUntilSelectionStart = -1f;
+                    _lengthUntilSelectionEnd = -1f;
                     return;
                 }
 
                 if (_selectionAnchor == -1)
                 {
                     _selectionAnchor = oldCursor;
+
+                    (int selectionStart, int selectionEnd) = MinMax(_selectionAnchor, _cursorPos);
+                    float startX = GetTextLength(_input.Substring(0, selectionStart));
+                    float endX = GetTextLength(_input.Substring(0, selectionEnd));
                 }
             }
         }
@@ -1554,11 +1563,19 @@ namespace SHVDN
             return *(float*)NativeFunc.Invoke(0x85F061DA64ED2F67 /* END_TEXT_COMMAND_GET_SCREEN_WIDTH_OF_DISPLAY_TEXT */, true);
         }
 
+        private static float _cachedMarginLength = -1f;
+
+        // We do not need a lock for this right now because only the update thread access this currently.
         private static float GetMarginLength()
         {
-            float len1 = GetTextLength("A");
-            float len2 = GetTextLength("AA");
-            return len1 - (len2 - len1); // [Margin][A] - [A] = [Margin]
+            if(_cachedMarginLength < 0f)
+            {
+                float len1 = GetTextLength("A");
+                float len2 = GetTextLength("AA");
+
+                _cachedMarginLength = len1 - (len2 - len1); // [Margin][A] - [A] = [Margin]
+            }
+            return _cachedMarginLength;
         }
 
         private static string LongestCommonPrefix(List<string> strs, string input)
