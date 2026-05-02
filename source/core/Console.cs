@@ -1410,6 +1410,11 @@ namespace SHVDN
             }
             return prefix;
         }
+
+        private (int min, int max) MinMax(int a, int b)
+        {
+            return a < b ? (a, b) : (b, a);
+        }
     }
 
     public sealed class ConsoleCommand : Attribute
