@@ -165,6 +165,86 @@ namespace GTA.NaturalMotion
         }
 
         /// <summary>
+        /// Gets a <see cref="bool"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        public bool GetArgument(string argName, bool defaultValue)
+        {
+            if (_boolIntFloatArguments?.TryGetValue(argName, out (int value, Type type) argument) == true &&
+                argument.type == typeof(bool))
+            {
+                return argument.value != 0;
+            }
+
+            return defaultValue;
+        }
+        /// <summary>
+        /// Gets an <see cref="int"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        public int GetArgument(string argName, int defaultValue)
+        {
+            if (_boolIntFloatArguments?.TryGetValue(argName, out (int value, Type type) argument) == true &&
+                argument.type == typeof(int))
+            {
+                return argument.value;
+            }
+
+            return defaultValue;
+        }
+        /// <summary>
+        /// Gets a <see cref="float"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        public float GetArgument(string argName, float defaultValue)
+        {
+            if (_boolIntFloatArguments?.TryGetValue(argName, out (int value, Type type) argument) == true &&
+                argument.type == typeof(float))
+            {
+                int valueConverted = argument.value;
+                unsafe
+                {
+                    return *(float*)&valueConverted;
+                }
+            }
+
+            return defaultValue;
+        }
+        /// <summary>
+        /// Gets a <see cref="string"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        public string GetArgument(string argName, string defaultValue)
+        {
+            if (_stringVector3ArrayArguments?.TryGetValue(argName, out object value) == true &&
+                value is string stringValue)
+            {
+                return stringValue;
+            }
+
+            return defaultValue;
+        }
+        /// <summary>
+        /// Gets a <see cref="Vector3"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        public Vector3 GetArgument(string argName, Vector3 defaultValue)
+        {
+            if (_stringVector3ArrayArguments?.TryGetValue(argName, out object value) == true &&
+                value is float[] { Length: >= 3 } vector)
+            {
+                return new Vector3(vector[0], vector[1], vector[2]);
+            }
+
+            return defaultValue;
+        }
+
+        /// <summary>
         /// Removes an argument.
         /// </summary>
         /// <param name="argName">The argument name.</param>

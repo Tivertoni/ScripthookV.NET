@@ -122,6 +122,52 @@ namespace GTA.NaturalMotion
         }
 
         /// <summary>
+        /// Gets a <see cref="bool"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        protected bool GetArgument(string argName, bool defaultValue)
+        {
+            return _message.GetArgument(argName, defaultValue);
+        }
+        /// <summary>
+        /// Gets an <see cref="int"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        protected int GetArgument(string argName, int defaultValue)
+        {
+            return _message.GetArgument(argName, defaultValue);
+        }
+        /// <summary>
+        /// Gets a <see cref="float"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        protected float GetArgument(string argName, float defaultValue)
+        {
+            return _message.GetArgument(argName, defaultValue);
+        }
+        /// <summary>
+        /// Gets a <see cref="string"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        protected string GetArgument(string argName, string defaultValue)
+        {
+            return _message.GetArgument(argName, defaultValue);
+        }
+        /// <summary>
+        /// Gets a <see cref="Vector3"/> argument value.
+        /// </summary>
+        /// <param name="argName">The argument name.</param>
+        /// <param name="defaultValue">The value to return if the argument is not set.</param>
+        protected Vector3 GetArgument(string argName, Vector3 defaultValue)
+        {
+            return _message.GetArgument(argName, defaultValue);
+        }
+
+        /// <summary>
         /// Resets all arguments to their default values.
         /// </summary>
         public void ResetArguments()
