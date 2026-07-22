@@ -77,10 +77,13 @@ namespace GTA
         }
 
         /// <summary>
-        /// Gets or sets the next weather.
+        /// Gets or sets the weather type the game is interpolating towards.
         /// </summary>
+        /// <remarks>
+        /// The setter does not preserve the interpolation value and resets it to 0 instead.
+        /// </remarks>
         /// <value>
-        /// The next weather.
+        /// The weather type the game is interpolating towards.
         /// </value>
         public static Weather NextWeather
         {
@@ -213,7 +216,7 @@ namespace GTA
         }
 
         /// <summary>
-        /// Transitions the weather to a random state.
+        /// Instantly sets the weather state to a randomized weather type.
         /// </summary>
         public static void SetRandomWeather() => Function.Call(Hash.SET_RANDOM_WEATHER_TYPE);
 
