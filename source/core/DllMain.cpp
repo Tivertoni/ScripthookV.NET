@@ -597,7 +597,16 @@ static void ScriptHookVDotNet_ManagedInit()
     }
 
     // Create a separate script domain
-    domain = SHVDN::ScriptDomain::Load(".", scriptPath);
+    try
+    {
+        domain = SHVDN::ScriptDomain::Load(".", scriptPath);
+    }
+    catch (Exception^ ex)
+    {
+        SHVDN::Log::Message(SHVDN::Log::Level::Error, "Failed to load script domain: ", ex->ToString());
+        return;
+    }
+
     if (domain == nullptr)
         return;
 
