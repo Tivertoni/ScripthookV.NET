@@ -1700,6 +1700,11 @@ namespace SHVDN
 
             public static int FirstVehicleFlagsOffset { get; }
 
+            private static int AudVehicleAudioEntityOffset;
+
+            public static int AudVehicleAudioEntity__IsHornEnabledOffset;
+            public static int AudVehicleAudioEntity__IsHornEnabledBitTest;
+
             static Vehicle()
             {
                 byte* address;
@@ -1979,6 +1984,19 @@ namespace SHVDN
                     ShouldShowOnlyVehicleTiresWithPositiveHealthOffset = *(int*)(address + 2);
                 }
 
+                address = MemScanner.FindPatternBmh("\xCB\x1C\x4A\xC5\x49\x8B\x8D\x00\x00\x00\x00\x45\x33\xC9\x45\x33\xC0", "xxxxxxx????xxxxxx");
+                if (address != null)
+                {
+                    AudVehicleAudioEntityOffset = *(int*)(address + 0x7);
+                }
+
+                address = MemScanner.FindPatternBmh("\x0F\x28\xF9\x0F\x85\xFF\xFF\x00\x00\xF6\xFF\xFF\xFF\x00\x00\xFF\x0F\x84", "xxxxx??xxx???xx?xx");
+                if (address != null)
+                {
+                    AudVehicleAudioEntity__IsHornEnabledOffset = *(int*)(address + 0xB);
+                    AudVehicleAudioEntity__IsHornEnabledBitTest = *(byte*)(address + 0xF);
+                }
+
                 // Vehicle Wheels has the owner vehicle pointer and new wheel functions are used since b1365
                 if (gameVersion >= 40)
                 {
@@ -1998,6 +2016,13 @@ namespace SHVDN
                 // The values for special flight mode (e.g. Deluxo) are present only in b1290 or later versions
                 if (gameVersion >= 38)
                 {
+                    address = MemScanner.FindPatternBmh("\x40\x38\xb8\x00\x00\x00\x00\x74\x00\x48\x8b\xc8\xe8\x00\x00\x00\x00\x0f\x2e\x05", "xxx????x?xxxx????xxx");
+
+                    if(address != null)
+                    {
+                        SpecialFlightModeAllowedOffset = *(int*)(address + 3);
+                    }     
+
                     address = MemScanner.FindPatternBmh("\x41\x0F\x2F\xC1\x72\x2E\xF6\x83", "xxxxxxxx");
                     if (address != null)
                     {
@@ -2083,6 +2108,7 @@ namespace SHVDN
                 return (byte*)(address + CVehicleEngineOffset);
             }
 
+            public static int SpecialFlightModeAllowedOffset { get; }
             public static int SpecialFlightTargetRatioOffset { get; }
             public static int SpecialFlightWingRatioOffset { get; }
             public static int SpecialFlightCurrentRatioOffset { get; }
@@ -2129,6 +2155,26 @@ namespace SHVDN
                 return *(byte*)(vehicleModelAddress + ModelSirenIdOffset);
             }
 
+            public static bool IsHornEnabled(int vehicleHandle)
+            {
+                IntPtr address = GetEntityAddress(vehicleHandle);
+
+                if (address == IntPtr.Zero)
+                {
+                    return false;
+                }
+
+                if(AudVehicleAudioEntityOffset == 0 || AudVehicleAudioEntity__IsHornEnabledBitTest == 0 || AudVehicleAudioEntity__IsHornEnabledOffset == 0)
+                {
+                    return false;
+                }
+
+                IntPtr audVehicleAudioEntityAddress = *(IntPtr*)((byte*)address + AudVehicleAudioEntityOffset);
+
+                byte flags = *(byte*)((long)audVehicleAudioEntityAddress + AudVehicleAudioEntity__IsHornEnabledOffset);
+
+                return (flags & AudVehicleAudioEntity__IsHornEnabledBitTest) != 0;
+            }
             #endregion
 
             #region -- Vehicle Wheel Data --
@@ -2478,6 +2524,12 @@ namespace SHVDN
                     VisualFieldCenterAngleOffset = SeeingRangeOffset + 0x18;
                 }
 
+                address = MemScanner.FindPatternBmh("\x7C\x00\x41\xb8\x65\x07\x9D\xA4", "x?xxxxxx");
+                if(address != null)
+                {
+                    MoneyCarriedOffset = *(int*)(address - 0x5);
+                }
+
                 address = MemScanner.FindPatternBmh("\x48\x8B\x88\x00\x00\x00\x00\x41\xB0\x01\xE8", "xxx????xxxx");
                 if (address != null)
                 {
@@ -2574,6 +2626,8 @@ namespace SHVDN
             public static int IsUsingWetEffectOffset { get; }
 
             public static int SweatOffset { get; }
+
+            public static int MoneyCarriedOffset { get; }
 
             /// <summary>
             /// The value at this offset should be 2 if the ped is a player ped.
