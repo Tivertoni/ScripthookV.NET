@@ -580,7 +580,20 @@ static void ScriptHookVDotNet_ManagedInit()
                 }
             }
             else if (String::Equals(keyStr, "ScriptsLocation", StringComparison::OrdinalIgnoreCase))
-                scriptPath = valueStr->Trim('"');
+            {
+                String^ path = valueStr->Trim('"');
+
+                try
+                {
+                    IO::Path::GetFullPath("./" + path);
+
+                    scriptPath = path;
+                }
+                catch (Exception^ ex)
+                {
+                    SHVDN::Log::Message(SHVDN::Log::Level::Error, "Invalid script path specified in config. Falling back to \"" + scriptPath + "\"");
+                }
+            }
             else if (String::Equals(keyStr, "AutoLoadScripts", StringComparison::OrdinalIgnoreCase))
             {
                 bool outVal;
